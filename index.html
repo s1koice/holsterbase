@@ -16,7 +16,58 @@
     const bytes=Uint8Array.from(atob(window.__HB_SITE),c=>c.charCodeAt(0));
     const stream=new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
     let html=await new Response(stream).text();
-    html=html.replace('</style>','.modal[hidden]{display:none!important}</style>');
+    html=html.replace('</style>',`.modal[hidden]{display:none!important}
+.carry-code{display:inline-flex;flex-direction:column;gap:1px;line-height:1.15}.carry-code small{font-size:10px;font-weight:600;opacity:.78;white-space:nowrap}.detail-box .carry-code small{font-size:11px;color:#667085}.carry-help{font-size:12px;color:#667085;margin-top:5px}</style>`);
+    html=html.replace('</body>',`<script>
+(function(){
+  const labels={
+    'IWB':'Внутренняя — внутри пояса',
+    'OWB':'Наружная — снаружи пояса',
+    'IWB / OWB':'Внутренняя / наружная',
+    'OWB / IWB':'Наружная / внутренняя',
+    'OWB tactical':'Наружная тактическая',
+    'OWB rotating':'Наружная поворотная',
+    'OWB modular':'Наружная модульная',
+    'IWB / OWB adapter':'Внутренняя / наружная с адаптером',
+    'Duty':'Служебная',
+    'Duty / OWB':'Служебная / наружная',
+    'Ankle':'На лодыжке',
+    'Shoulder':'Плечевая',
+    'Chest':'Нагрудная',
+    'Drop Leg':'Набедренная',
+    'Tactical':'Тактическая'
+  };
+  function describe(value){
+    if(labels[value]) return labels[value];
+    if(value.includes('IWB')&&value.includes('OWB')) return 'Внутренняя / наружная';
+    if(value.includes('IWB')) return 'Внутренняя — внутри пояса';
+    if(value.includes('OWB')) return 'Наружная — снаружи пояса';
+    if(value.toLowerCase().includes('duty')) return 'Служебная';
+    if(value.toLowerCase().includes('ankle')) return 'На лодыжке';
+    return '';
+  }
+  function decorate(root=document){
+    root.querySelectorAll('.tag').forEach(el=>{
+      if(el.dataset.carryDone) return;
+      const raw=el.textContent.trim(); const text=describe(raw);
+      if(text){el.dataset.carryDone='1';el.classList.add('carry-code');el.innerHTML='<span>'+raw+'</span><small>'+text+'</small>';}
+    });
+    root.querySelectorAll('.detail-box strong').forEach(el=>{
+      if(el.dataset.carryDone) return;
+      const raw=el.textContent.trim(); const text=describe(raw);
+      if(text){el.dataset.carryDone='1';el.classList.add('carry-code');el.innerHTML='<span>'+raw+'</span><small>'+text+'</small>';}
+    });
+    const carry=document.getElementById('carry');
+    if(carry&&!carry.dataset.described){
+      carry.dataset.described='1';
+      [...carry.options].forEach(o=>{const d=describe(o.value);if(d&&o.value)o.textContent=o.value+' — '+d;});
+    }
+  }
+  const observer=new MutationObserver(()=>decorate());
+  observer.observe(document.documentElement,{childList:true,subtree:true});
+  decorate();
+})();
+<\/script></body>`);
     document.open();document.write(html);document.close();
   }catch(e){document.querySelector('.muted').textContent='Ошибка загрузки каталога: '+e.message;}
 })();
