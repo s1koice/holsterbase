@@ -59,6 +59,17 @@ function modelFromCard(card,text,brand){
   const candidate=tokens.map(normalizeModel).find(v=>validModel(v,brand));
   return candidate||'';
 }
+function fallbackModel(card,text,index){
+  const heading=clean(card.querySelector('h1,h2,h3,h4,h5,h6,strong,b,.title,.card-title')?.textContent||'');
+  const candidates=[heading,text];
+  for(const source of candidates){
+    const labelled=source.match(/(?:модель\s+кобуры|model(?:\s+code)?|sku|артикул|код\s+модели)\s*[:№#-]?\s*([^,.;|]{2,40})/i);
+    if(labelled)return normalizeModel(labelled[1]);
+    const first=source.match(/\b([A-Z0-9][A-Z0-9._/+\-]{1,30})\b/i);
+    if(first&&!/^(Fobus|Orpaz)$/i.test(first[1]))return normalizeModel(first[1]);
+  }
+  return 'Карточка '+(index+1);
+}
 function extractModels(doc){
   const all=[...doc.body.querySelectorAll('*')].filter(el=>visible(el));
   let candidates=all.filter(el=>{
@@ -76,12 +87,11 @@ function extractModels(doc){
   candidates.forEach((card,index)=>{
     const text=clean(card.innerText);if(!text)return;
     const brand=(text.match(/\b(Fobus|Orpaz)\b/i)||[])[0]||'';
-    const model=modelFromCard(card,text,brand);
-    if(!model)return;
+    const model=modelFromCard(card,text,brand)||fallbackModel(card,text,index);
     const heading=card.querySelector('h1,h2,h3,h4,h5,strong,b,.title,.card-title');
     const description=clean(heading?.textContent||text).slice(0,220);
     const explicit=card.getAttribute('data-model-id')||card.getAttribute('data-id')||card.querySelector('[data-model-id]')?.getAttribute('data-model-id');
-    let id=explicit||slug((brand?brand+'-':'')+model);if(!id)return;
+    let id=explicit||slug((brand?brand+'-':'')+model);if(!id)id='card-'+(index+1);
     if(seen.has(id)){let n=2;while(seen.has(id+'-'+n))n++;id=id+'-'+n;}
     seen.add(id);
     out.push({id,name:model,details:[brand,description].filter(Boolean).join(' · '),order:index});
