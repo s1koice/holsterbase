@@ -5,116 +5,81 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>HolsterBase Admin</title>
 <style>
-:root{color-scheme:light;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif}
-*{box-sizing:border-box}body{margin:0;background:#f5f7fb;color:#101828}.wrap{max-width:1040px;margin:auto;padding:24px}.top{display:flex;gap:16px;align-items:center;justify-content:space-between;flex-wrap:wrap}.back{color:#175cd3;text-decoration:none;font-weight:700}h1{margin:0 0 6px}.muted{color:#667085}.panel{background:#fff;border:1px solid #e4e7ec;border-radius:18px;padding:18px;margin-top:18px;box-shadow:0 8px 24px rgba(16,24,40,.05)}.toolbar{display:grid;grid-template-columns:1fr auto;gap:12px}.search{width:100%;padding:13px 14px;border:1px solid #d0d5dd;border-radius:12px;font-size:16px}.filters{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.chip{border:1px solid #d0d5dd;background:#fff;border-radius:999px;padding:9px 12px;cursor:pointer}.chip.active{background:#101828;color:#fff;border-color:#101828}.stats{display:flex;gap:18px;flex-wrap:wrap;margin:16px 0;color:#475467}.list{display:grid;gap:10px}.item{display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;border:1px solid #e4e7ec;border-radius:14px;padding:14px}.name{font-weight:850;font-size:20px}.sub{font-size:13px;color:#667085;margin-top:4px;line-height:1.4}.toggle{display:flex;gap:8px;align-items:center;font-size:14px;white-space:nowrap}.toggle input{width:22px;height:22px}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}.btn{border:0;border-radius:12px;padding:12px 16px;font-weight:800;cursor:pointer;background:#101828;color:#fff}.btn.secondary{background:#eef2f6;color:#101828}.output{display:none;margin-top:16px}.output.show{display:block}textarea{width:100%;min-height:300px;border:1px solid #d0d5dd;border-radius:12px;padding:14px;font:13px ui-monospace,SFMono-Regular,Menlo,monospace;resize:vertical}.status{margin-top:10px;font-size:14px;color:#067647}iframe{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}.empty{padding:28px;text-align:center;color:#667085}@media(max-width:700px){.wrap{padding:14px}.toolbar{grid-template-columns:1fr}.item{grid-template-columns:1fr}.toggle{justify-content:space-between}.actions .btn{width:100%}}
+:root{font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;color:#101828;background:#f5f7fb}
+*{box-sizing:border-box}body{margin:0}.adminbar{position:sticky;top:0;z-index:1000;background:#fff;border-bottom:1px solid #e4e7ec;box-shadow:0 6px 18px rgba(16,24,40,.08)}.inner{max-width:1200px;margin:auto;padding:14px 18px}.top{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}.title{font-size:24px;font-weight:850}.muted{color:#667085;font-size:14px}.stats{display:flex;gap:18px;flex-wrap:wrap;margin-top:10px;color:#475467}.actions{display:flex;gap:10px;flex-wrap:wrap}.btn{border:0;border-radius:11px;padding:11px 15px;font-weight:800;cursor:pointer;background:#101828;color:#fff}.btn.secondary{background:#eef2f6;color:#101828}.catalog-link{color:#175cd3;text-decoration:none;font-weight:750}.framewrap{max-width:1400px;margin:auto;padding:0 8px 30px}.hint{padding:12px 18px;color:#667085;font-size:14px;text-align:center}.output{display:none;max-width:1200px;margin:14px auto;padding:0 18px}.output.show{display:block}textarea{width:100%;min-height:260px;border:1px solid #d0d5dd;border-radius:12px;padding:14px;font:13px ui-monospace,SFMono-Regular,Menlo,monospace}.status{margin-top:8px;color:#067647;font-size:14px}iframe{display:block;width:100%;height:1200px;border:0;background:#fff;border-radius:0 0 18px 18px}
+@media(max-width:700px){.inner{padding:12px}.title{font-size:20px}.actions .btn{flex:1}.stats{font-size:14px}.framewrap{padding:0}}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <div class="top"><div><h1>HolsterBase Admin</h1><div class="muted">Редактор моделей кобур, которые есть в нашем ассортименте</div></div><a class="back" href="index.html">← Каталог</a></div>
-  <div class="panel">
-    <div class="toolbar"><input id="search" class="search" placeholder="Поиск модели кобуры, оружия или производителя"><button id="reload" class="btn secondary">Обновить список</button></div>
-    <div class="filters"><button class="chip active" data-filter="all">Все</button><button class="chip" data-filter="available">Наш ассортимент</button><button class="chip" data-filter="empty">Неотмеченные</button></div>
-    <div class="stats"><span>Всего карточек: <b id="total">0</b></span><span>В ассортименте: <b id="availableCount">0</b></span></div>
-    <div id="list" class="list"><div class="empty">Загрузка карточек…</div></div>
-    <div class="actions"><button id="generate" class="btn">Сформировать catalog-status.json</button><button id="github" class="btn secondary">Открыть файл на GitHub</button></div>
-    <div id="output" class="output"><textarea id="json" readonly></textarea><div class="actions"><button id="copy" class="btn">Копировать JSON</button></div><div id="status" class="status"></div></div>
+<header class="adminbar">
+  <div class="inner">
+    <div class="top">
+      <div><div class="title">HolsterBase Admin</div><div class="muted">Редактирование прямо на карточках основного каталога</div></div>
+      <div class="actions"><button id="generate" class="btn">Сформировать JSON</button><button id="github" class="btn secondary">Открыть файл на GitHub</button><a class="catalog-link" href="index.html">Открыть каталог</a></div>
+    </div>
+    <div class="stats"><span>Карточек: <b id="total">0</b></span><span>В ассортименте: <b id="available">0</b></span></div>
   </div>
-</div>
-<iframe id="catalog" src="index.html"></iframe>
+</header>
+<div class="output" id="output"><textarea id="json" readonly></textarea><div class="actions" style="margin-top:10px"><button id="copy" class="btn">Копировать JSON</button></div><div class="status" id="status"></div></div>
+<div class="hint">Отметь «Есть в ассортименте» прямо на нужных карточках. Вид и содержание карточек полностью совпадают с основным каталогом.</div>
+<div class="framewrap"><iframe id="catalog" src="index.html"></iframe></div>
 <script>
 const GH='https://github.com/s1koice/holsterbase/edit/main/catalog-status.json';
-let models=[],state={},filter='all';
-const slug=s=>String(s||'').toLowerCase().trim().replace(/[^a-z0-9а-яё]+/gi,'-').replace(/^-+|-+$/g,'');
+const frame=document.getElementById('catalog');
+let state={}, cards=[];
 const clean=s=>String(s||'').replace(/\s+/g,' ').trim();
-const blocked=new Set(['FOBUS','ORPAZ','IWB','OWB','DUTY','TACTICAL','LEVEL','SERIES','CLASSIC','ACTIVE','PASSIVE','GLOCK','BERETTA','SIG','SAUER','CZ']);
-function visible(el){const r=el.getBoundingClientRect();const cs=getComputedStyle(el);return r.width>180&&r.height>45&&r.height<750&&cs.display!=='none'&&cs.visibility!=='hidden';}
-function normalizeModel(v){
-  v=clean(v).replace(/^(модель\s+кобуры|model(?:\s+code)?|sku|артикул|код\s+модели)\s*[:№#-]?\s*/i,'').replace(/[.,;:]+$/,'');
-  if(v.length<2||v.length>40)return '';
-  return v;
-}
-function validModel(v,brand){
-  if(!v)return false;
-  const upper=v.toUpperCase();
-  return !blocked.has(upper)&&upper!==String(brand||'').toUpperCase()&&!/^19\d\d$|^20\d\d$/.test(upper)&&/\d/.test(upper)&&/[A-Z]/i.test(upper);
-}
-function modelFromCard(card,text,brand){
-  const directAttrs=['data-model','data-model-name','data-model-code','data-sku','data-code','data-product-code'];
-  for(const el of [card,...card.querySelectorAll('*')]){
-    for(const attr of directAttrs){const value=normalizeModel(el.getAttribute?.(attr));if(validModel(value,brand))return value;}
-  }
-  const headings=[...card.querySelectorAll('h1,h2,h3,h4,h5,h6,[class*=title],[class*=model],strong,b')].map(el=>clean(el.textContent)).filter(Boolean);
-  for(const heading of headings){
-    const duplicate=heading.match(/\b([A-Z0-9][A-Z0-9._/+\-]{1,24})\s*[—–-]\s*\1\b/i);
-    if(duplicate&&validModel(duplicate[1],brand))return normalizeModel(duplicate[1]);
-    const exact=heading.match(/^\s*(?:Fobus|Orpaz)?\s*([0-9]{2,5}[A-Z]{1,8}[A-Z0-9._/+\-]*|[A-Z]{1,8}[0-9]{1,5}[A-Z0-9._/+\-]*)\s*$/i);
-    if(exact&&validModel(exact[1],brand))return normalizeModel(exact[1]);
-  }
-  const labelled=text.match(/(?:модель\s+кобуры|model(?:\s+code)?|sku|артикул|код\s+модели)\s*[:№#-]?\s*([A-ZА-Я0-9][A-ZА-Я0-9._/+\-]*)/i);
-  if(labelled){const value=normalizeModel(labelled[1]);if(validModel(value,brand))return value;}
-  const attrText=[...card.querySelectorAll('a,[href],[id],[class]')].flatMap(el=>[el.getAttribute('href'),el.id,el.className]).filter(v=>typeof v==='string').join(' ');
-  const source=headings.join(' ')+' '+text+' '+attrText;
-  const tokens=source.match(/\b\d{2,5}[A-Z]{1,8}[A-Z0-9._/+\-]*\b|\b[A-Z]{1,8}\d{1,5}[A-Z0-9._/+\-]*\b|\b[A-Z]{1,8}[A-Z0-9]*(?:[-/.][A-Z0-9]{1,12})+\b/gi)||[];
-  const candidate=tokens.map(normalizeModel).find(v=>validModel(v,brand));
-  return candidate||'';
-}
-function fallbackModel(card,text,index){
-  const heading=clean(card.querySelector('h1,h2,h3,h4,h5,h6,strong,b,.title,.card-title')?.textContent||'');
-  const candidates=[heading,text];
-  for(const source of candidates){
-    const labelled=source.match(/(?:модель\s+кобуры|model(?:\s+code)?|sku|артикул|код\s+модели)\s*[:№#-]?\s*([^,.;|]{2,40})/i);
-    if(labelled)return normalizeModel(labelled[1]);
-    const first=source.match(/\b([A-Z0-9][A-Z0-9._/+\-]{1,30})\b/i);
-    if(first&&!/^(Fobus|Orpaz)$/i.test(first[1]))return normalizeModel(first[1]);
-  }
-  return 'Карточка '+(index+1);
-}
-function extractModels(doc){
-  const all=[...doc.body.querySelectorAll('*')].filter(el=>visible(el));
-  let candidates=all.filter(el=>{
-    const t=clean(el.innerText);if(t.length<12||t.length>900)return false;
-    if(!/\b(Fobus|Orpaz)\b/i.test(t))return false;
-    const brandChildren=[...el.children].filter(ch=>/\b(Fobus|Orpaz)\b/i.test(clean(ch.innerText))&&clean(ch.innerText).length>10);
-    return brandChildren.length===0;
+const slug=s=>String(s||'').toLowerCase().trim().replace(/[^a-z0-9а-яё]+/gi,'-').replace(/^-+|-+$/g,'').slice(0,90);
+function hash(str){let h=2166136261;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619)}return (h>>>0).toString(36)}
+function visible(el,win){const r=el.getBoundingClientRect();const cs=win.getComputedStyle(el);return r.width>180&&r.height>45&&r.height<850&&cs.display!=='none'&&cs.visibility!=='hidden'}
+function findCards(doc){
+  const win=doc.defaultView;
+  const all=[...doc.body.querySelectorAll('*')].filter(el=>visible(el,win));
+  let result=all.filter(el=>{
+    const t=clean(el.innerText);if(t.length<12||t.length>1000||!/\b(Fobus|Orpaz)\b/i.test(t))return false;
+    return ![...el.children].some(ch=>{const ct=clean(ch.innerText);return ct.length>12&&ct.length<t.length*.92&&/\b(Fobus|Orpaz)\b/i.test(ct)});
   });
-  if(candidates.length<5){
+  if(result.length<50){
     const selectors=['[data-model]','[data-model-id]','article','li','.product-card','.holster-card','.model-card','.catalog-card','.card'];
-    candidates=[];for(const s of selectors)candidates.push(...doc.querySelectorAll(s));
-    candidates=candidates.filter(el=>visible(el)&&/\b(Fobus|Orpaz)\b/i.test(clean(el.innerText)));
+    result=[...new Set(selectors.flatMap(s=>[...doc.querySelectorAll(s)]))].filter(el=>visible(el,win)&&/\b(Fobus|Orpaz)\b/i.test(clean(el.innerText)));
   }
-  const seen=new Set(),out=[];
-  candidates.forEach((card,index)=>{
-    const text=clean(card.innerText);if(!text)return;
-    const brand=(text.match(/\b(Fobus|Orpaz)\b/i)||[])[0]||'';
-    const model=modelFromCard(card,text,brand)||fallbackModel(card,text,index);
-    const heading=card.querySelector('h1,h2,h3,h4,h5,strong,b,.title,.card-title');
-    const description=clean(heading?.textContent||text).slice(0,220);
-    const explicit=card.getAttribute('data-model-id')||card.getAttribute('data-id')||card.querySelector('[data-model-id]')?.getAttribute('data-model-id');
-    let id=explicit||slug((brand?brand+'-':'')+model);if(!id)id='card-'+(index+1);
-    if(seen.has(id)){let n=2;while(seen.has(id+'-'+n))n++;id=id+'-'+n;}
-    seen.add(id);
-    out.push({id,name:model,details:[brand,description].filter(Boolean).join(' · '),order:index});
+  return result;
+}
+function cardId(card,index){
+  const explicit=card.getAttribute('data-model-id')||card.getAttribute('data-id')||card.getAttribute('data-model')||card.querySelector('[data-model-id]')?.getAttribute('data-model-id')||card.querySelector('[data-model]')?.getAttribute('data-model');
+  const text=clean(card.innerText);
+  const heading=clean(card.querySelector('h1,h2,h3,h4,h5,h6,[class*=title],[class*=model],strong,b')?.textContent||'');
+  const base=explicit||heading||text.slice(0,180)||('card-'+index);
+  return slug(base)+'-'+hash(text.slice(0,500));
+}
+async function loadState(){try{const r=await fetch('catalog-status.json?'+Date.now());const raw=r.ok?await r.json():{};state={};Object.entries(raw).forEach(([id,v])=>{if(v===true||v?.available)state[id]=true})}catch{state={}}}
+function updateStats(){document.getElementById('total').textContent=cards.length;document.getElementById('available').textContent=cards.filter(c=>state[c.id]).length}
+function inject(){
+  const doc=frame.contentDocument;if(!doc?.body)return false;
+  const found=findCards(doc);if(found.length<20)return false;
+  doc.getElementById('hb-admin-style')?.remove();
+  const style=doc.createElement('style');style.id='hb-admin-style';style.textContent=`
+    .hb-admin-card{position:relative!important;overflow:visible!important}
+    .hb-admin-toggle{position:absolute;z-index:999;right:10px;top:10px;display:flex;align-items:center;gap:7px;padding:8px 10px;border-radius:999px;background:rgba(255,255,255,.96);border:1px solid #d0d5dd;box-shadow:0 4px 14px rgba(16,24,40,.16);font:700 12px system-ui,-apple-system,sans-serif;color:#101828;cursor:pointer}
+    .hb-admin-toggle input{width:19px;height:19px;margin:0;accent-color:#12b76a}
+    .hb-admin-card.hb-selected{outline:3px solid #12b76a!important;outline-offset:2px}
+    @media(max-width:700px){.hb-admin-toggle{right:6px;top:6px;padding:6px 8px;font-size:11px}}
+  `;doc.head.appendChild(style);
+  cards=[];
+  found.forEach((card,index)=>{
+    card.querySelector(':scope > .hb-admin-toggle')?.remove();
+    const id=cardId(card,index);card.classList.add('hb-admin-card');card.classList.toggle('hb-selected',!!state[id]);
+    const label=doc.createElement('label');label.className='hb-admin-toggle';label.innerHTML=`<span>Есть в ассортименте</span><input type="checkbox" ${state[id]?'checked':''}>`;
+    label.addEventListener('click',e=>e.stopPropagation());
+    label.querySelector('input').addEventListener('change',e=>{e.stopPropagation();if(e.target.checked)state[id]=true;else delete state[id];card.classList.toggle('hb-selected',e.target.checked);updateStats()});
+    card.appendChild(label);cards.push({id,card});
   });
-  return out.sort((a,b)=>a.name.localeCompare(b.name,'ru',{numeric:true}));
+  const resize=()=>{frame.style.height=Math.max(900,doc.documentElement.scrollHeight+20)+'px'};resize();setTimeout(resize,500);setTimeout(resize,1500);updateStats();return true;
 }
-async function loadState(){try{const r=await fetch('catalog-status.json?'+Date.now());const raw=r.ok?await r.json():{};state={};Object.entries(raw).forEach(([id,v])=>{if(v===true||v?.available)state[id]=true;});}catch{state={};}}
-async function loadCatalog(){
-  document.getElementById('list').innerHTML='<div class="empty">Загрузка карточек…</div>';await loadState();
-  const frame=document.getElementById('catalog');
-  const read=()=>{try{models=extractModels(frame.contentDocument);render();}catch(e){document.getElementById('list').innerHTML='<div class="empty">Не удалось прочитать каталог: '+escapeHtml(e.message)+'</div>';}};
-  if(frame.contentDocument&&frame.contentDocument.readyState==='complete')setTimeout(read,1800);else frame.onload=()=>setTimeout(read,1800);
-}
-function render(){
-  const q=document.getElementById('search').value.toLowerCase().trim();
-  const rows=models.filter(m=>{if(q&&!(`${m.name} ${m.details}`.toLowerCase().includes(q)))return false;if(filter==='available'&&!state[m.id])return false;if(filter==='empty'&&state[m.id])return false;return true;});
-  document.getElementById('total').textContent=models.length;document.getElementById('availableCount').textContent=models.filter(m=>state[m.id]).length;
-  const list=document.getElementById('list');list.innerHTML='';if(!rows.length){list.innerHTML='<div class="empty">Ничего не найдено</div>';return;}
-  rows.forEach(m=>{const el=document.createElement('div');el.className='item';el.innerHTML=`<div><div class="name">${escapeHtml(m.name)}</div><div class="sub">${escapeHtml(m.details||m.id)}</div></div><label class="toggle">Есть в ассортименте <input type="checkbox" ${state[m.id]?'checked':''}></label>`;el.querySelector('input').onchange=e=>{if(e.target.checked)state[m.id]=true;else delete state[m.id];render();};list.appendChild(el);});
-}
-function escapeHtml(v){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function output(){const cleanState={};Object.keys(state).sort().forEach(id=>{if(state[id])cleanState[id]={available:true};});document.getElementById('json').value=JSON.stringify(cleanState,null,2)+'\n';document.getElementById('output').classList.add('show');document.getElementById('status').textContent='';document.getElementById('output').scrollIntoView({behavior:'smooth'});}
-document.getElementById('search').oninput=render;document.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{document.querySelectorAll('.chip').forEach(x=>x.classList.remove('active'));b.classList.add('active');filter=b.dataset.filter;render();});document.getElementById('generate').onclick=output;document.getElementById('copy').onclick=async()=>{await navigator.clipboard.writeText(document.getElementById('json').value);document.getElementById('status').textContent='JSON скопирован. Вставь его в catalog-status.json на GitHub.';};document.getElementById('github').onclick=()=>window.open(GH,'_blank');document.getElementById('reload').onclick=()=>{document.getElementById('catalog').src='index.html?'+Date.now();setTimeout(loadCatalog,100);};loadCatalog();
+async function start(){await loadState();let tries=0;const timer=setInterval(()=>{tries++;if(inject()||tries>30)clearInterval(timer)},500)}
+frame.addEventListener('load',start);
+document.getElementById('generate').onclick=()=>{const out={};Object.keys(state).sort().forEach(id=>{if(state[id])out[id]={available:true}});document.getElementById('json').value=JSON.stringify(out,null,2)+'\n';document.getElementById('output').classList.add('show');window.scrollTo({top:0,behavior:'smooth'})};
+document.getElementById('copy').onclick=async()=>{await navigator.clipboard.writeText(document.getElementById('json').value);document.getElementById('status').textContent='JSON скопирован. Вставь его в catalog-status.json на GitHub.'};
+document.getElementById('github').onclick=()=>window.open(GH,'_blank');
 </script>
 </body>
 </html>
