@@ -6,8 +6,8 @@
 <title>HolsterBase Admin</title>
 <style>
 :root{font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;color:#101828;background:#f5f7fb}
-*{box-sizing:border-box}body{margin:0}.adminbar{position:sticky;top:0;z-index:1000;background:#fff;border-bottom:1px solid #e4e7ec;box-shadow:0 6px 18px rgba(16,24,40,.08)}.inner{max-width:1200px;margin:auto;padding:14px 18px}.top{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}.title{font-size:24px;font-weight:850}.muted{color:#667085;font-size:14px}.stats{display:flex;gap:18px;flex-wrap:wrap;margin-top:10px;color:#475467}.actions{display:flex;gap:10px;flex-wrap:wrap}.btn{border:0;border-radius:11px;padding:11px 15px;font-weight:800;cursor:pointer;background:#101828;color:#fff}.btn.secondary{background:#eef2f6;color:#101828}.catalog-link{color:#175cd3;text-decoration:none;font-weight:750}.framewrap{max-width:1400px;margin:auto;padding:0 8px 30px}.hint{padding:12px 18px;color:#667085;font-size:14px;text-align:center}.output{display:none;max-width:1200px;margin:14px auto;padding:0 18px}.output.show{display:block}textarea{width:100%;min-height:260px;border:1px solid #d0d5dd;border-radius:12px;padding:14px;font:13px ui-monospace,SFMono-Regular,Menlo,monospace}.status{margin-top:8px;color:#067647;font-size:14px}iframe{display:block;width:100%;height:1200px;border:0;background:#fff;border-radius:0 0 18px 18px}
-@media(max-width:700px){.inner{padding:12px}.title{font-size:20px}.actions .btn{flex:1}.stats{font-size:14px}.framewrap{padding:0}}
+*{box-sizing:border-box}body{margin:0}.adminbar{position:sticky;top:0;z-index:1000;background:#fff;border-bottom:1px solid #e4e7ec;box-shadow:0 6px 18px rgba(16,24,40,.08)}.inner{max-width:1200px;margin:auto;padding:14px 18px}.top{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}.title{font-size:24px;font-weight:850}.muted{color:#667085;font-size:14px}.toolbar{display:grid;grid-template-columns:1fr auto;gap:10px;margin-top:12px}.search{width:100%;padding:12px 14px;border:1px solid #d0d5dd;border-radius:11px;font-size:16px}.stats{display:flex;gap:18px;flex-wrap:wrap;margin-top:10px;color:#475467}.actions{display:flex;gap:10px;flex-wrap:wrap}.btn{border:0;border-radius:11px;padding:11px 15px;font-weight:800;cursor:pointer;background:#101828;color:#fff}.btn.secondary{background:#eef2f6;color:#101828}.catalog-link{color:#175cd3;text-decoration:none;font-weight:750}.framewrap{max-width:1400px;margin:auto;padding:0 8px 30px}.hint{padding:12px 18px;color:#667085;font-size:14px;text-align:center}.output{display:none;max-width:1200px;margin:14px auto;padding:0 18px}.output.show{display:block}textarea{width:100%;min-height:260px;border:1px solid #d0d5dd;border-radius:12px;padding:14px;font:13px ui-monospace,SFMono-Regular,Menlo,monospace}.status{margin-top:8px;color:#067647;font-size:14px}iframe{display:block;width:100%;height:1200px;border:0;background:#fff;border-radius:0 0 18px 18px}
+@media(max-width:700px){.inner{padding:12px}.title{font-size:20px}.toolbar{grid-template-columns:1fr}.actions .btn{flex:1}.stats{font-size:14px}.framewrap{padding:0}}
 </style>
 </head>
 <body>
@@ -17,66 +17,76 @@
       <div><div class="title">HolsterBase Admin</div><div class="muted">Редактирование прямо на карточках основного каталога</div></div>
       <div class="actions"><button id="generate" class="btn">Сформировать JSON</button><button id="github" class="btn secondary">Открыть файл на GitHub</button><a class="catalog-link" href="index.html">Открыть каталог</a></div>
     </div>
-    <div class="stats"><span>Карточек: <b id="total">0</b></span><span>В ассортименте: <b id="available">0</b></span></div>
+    <div class="toolbar"><input id="adminSearch" class="search" placeholder="Поиск по модели, оружию или производителю"><button id="clearSearch" class="btn secondary">Очистить</button></div>
+    <div class="stats"><span>Карточек: <b id="total">0</b></span><span>Показано: <b id="shown">0</b></span><span>В ассортименте: <b id="available">0</b></span></div>
   </div>
 </header>
 <div class="output" id="output"><textarea id="json" readonly></textarea><div class="actions" style="margin-top:10px"><button id="copy" class="btn">Копировать JSON</button></div><div class="status" id="status"></div></div>
-<div class="hint">Отметь «Есть в ассортименте» прямо на нужных карточках. Вид и содержание карточек полностью совпадают с основным каталогом.</div>
+<div class="hint">Используй поиск сверху. Кнопка «Есть в ассортименте» сохраняется на карточках даже после фильтрации каталога.</div>
 <div class="framewrap"><iframe id="catalog" src="index.html"></iframe></div>
 <script>
 const GH='https://github.com/s1koice/holsterbase/edit/main/catalog-status.json';
 const frame=document.getElementById('catalog');
-let state={}, cards=[];
+let state={},cards=[],observer=null,decorateTimer=null;
 const clean=s=>String(s||'').replace(/\s+/g,' ').trim();
 const slug=s=>String(s||'').toLowerCase().trim().replace(/[^a-z0-9а-яё]+/gi,'-').replace(/^-+|-+$/g,'').slice(0,90);
 function hash(str){let h=2166136261;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619)}return (h>>>0).toString(36)}
 function visible(el,win){const r=el.getBoundingClientRect();const cs=win.getComputedStyle(el);return r.width>180&&r.height>45&&r.height<850&&cs.display!=='none'&&cs.visibility!=='hidden'}
 function findCards(doc){
   const win=doc.defaultView;
-  const all=[...doc.body.querySelectorAll('*')].filter(el=>visible(el,win));
-  let result=all.filter(el=>{
-    const t=clean(el.innerText);if(t.length<12||t.length>1000||!/\b(Fobus|Orpaz)\b/i.test(t))return false;
-    return ![...el.children].some(ch=>{const ct=clean(ch.innerText);return ct.length>12&&ct.length<t.length*.92&&/\b(Fobus|Orpaz)\b/i.test(ct)});
-  });
-  if(result.length<50){
-    const selectors=['[data-model]','[data-model-id]','article','li','.product-card','.holster-card','.model-card','.catalog-card','.card'];
-    result=[...new Set(selectors.flatMap(s=>[...doc.querySelectorAll(s)]))].filter(el=>visible(el,win)&&/\b(Fobus|Orpaz)\b/i.test(clean(el.innerText)));
+  const selectors=['[data-model]','[data-model-id]','article','li','.product-card','.holster-card','.model-card','.catalog-card','.card'];
+  let result=[...new Set(selectors.flatMap(s=>[...doc.querySelectorAll(s)]))].filter(el=>visible(el,win)&&/\b(Fobus|Orpaz)\b/i.test(clean(el.innerText)));
+  if(result.length<20){
+    const all=[...doc.body.querySelectorAll('*')].filter(el=>visible(el,win));
+    result=all.filter(el=>{
+      const t=clean(el.innerText);if(t.length<12||t.length>1000||!/\b(Fobus|Orpaz)\b/i.test(t))return false;
+      return ![...el.children].some(ch=>{const ct=clean(ch.innerText);return ct.length>12&&ct.length<t.length*.92&&/\b(Fobus|Orpaz)\b/i.test(ct)});
+    });
   }
   return result;
 }
 function cardId(card,index){
   const explicit=card.getAttribute('data-model-id')||card.getAttribute('data-id')||card.getAttribute('data-model')||card.querySelector('[data-model-id]')?.getAttribute('data-model-id')||card.querySelector('[data-model]')?.getAttribute('data-model');
-  const text=clean(card.innerText);
+  const text=clean(card.innerText.replace(/Есть в ассортименте/g,''));
   const heading=clean(card.querySelector('h1,h2,h3,h4,h5,h6,[class*=title],[class*=model],strong,b')?.textContent||'');
   const base=explicit||heading||text.slice(0,180)||('card-'+index);
   return slug(base)+'-'+hash(text.slice(0,500));
 }
 async function loadState(){try{const r=await fetch('catalog-status.json?'+Date.now());const raw=r.ok?await r.json():{};state={};Object.entries(raw).forEach(([id,v])=>{if(v===true||v?.available)state[id]=true})}catch{state={}}}
-function updateStats(){document.getElementById('total').textContent=cards.length;document.getElementById('available').textContent=cards.filter(c=>state[c.id]).length}
-function inject(){
+function updateStats(){document.getElementById('total').textContent=cards.length;document.getElementById('shown').textContent=cards.filter(c=>c.card.style.display!=='none').length;document.getElementById('available').textContent=cards.filter(c=>state[c.id]).length}
+function applyAdminSearch(){const q=clean(document.getElementById('adminSearch').value).toLowerCase();cards.forEach(({card})=>{card.style.display=!q||clean(card.innerText).toLowerCase().includes(q)?'':'none'});updateStats();resizeFrame()}
+function resizeFrame(){const doc=frame.contentDocument;if(doc?.documentElement)frame.style.height=Math.max(900,doc.documentElement.scrollHeight+20)+'px'}
+function decorate(){
   const doc=frame.contentDocument;if(!doc?.body)return false;
-  const found=findCards(doc);if(found.length<20)return false;
-  doc.getElementById('hb-admin-style')?.remove();
-  const style=doc.createElement('style');style.id='hb-admin-style';style.textContent=`
-    .hb-admin-card{position:relative!important;overflow:visible!important}
-    .hb-admin-toggle{position:absolute;z-index:999;right:10px;top:10px;display:flex;align-items:center;gap:7px;padding:8px 10px;border-radius:999px;background:rgba(255,255,255,.96);border:1px solid #d0d5dd;box-shadow:0 4px 14px rgba(16,24,40,.16);font:700 12px system-ui,-apple-system,sans-serif;color:#101828;cursor:pointer}
-    .hb-admin-toggle input{width:19px;height:19px;margin:0;accent-color:#12b76a}
-    .hb-admin-card.hb-selected{outline:3px solid #12b76a!important;outline-offset:2px}
-    @media(max-width:700px){.hb-admin-toggle{right:6px;top:6px;padding:6px 8px;font-size:11px}}
-  `;doc.head.appendChild(style);
+  const found=findCards(doc);if(!found.length)return false;
+  if(!doc.getElementById('hb-admin-style')){
+    const style=doc.createElement('style');style.id='hb-admin-style';style.textContent=`
+      .hb-admin-card{position:relative!important;overflow:visible!important}
+      .hb-admin-toggle{position:absolute;z-index:9999;right:10px;top:10px;display:flex;align-items:center;gap:7px;padding:8px 10px;border-radius:999px;background:rgba(255,255,255,.97);border:1px solid #d0d5dd;box-shadow:0 4px 14px rgba(16,24,40,.16);font:700 12px system-ui,-apple-system,sans-serif;color:#101828;cursor:pointer}
+      .hb-admin-toggle input{width:19px;height:19px;margin:0;accent-color:#12b76a}
+      .hb-admin-card.hb-selected{outline:3px solid #12b76a!important;outline-offset:2px}
+      @media(max-width:700px){.hb-admin-toggle{right:6px;top:6px;padding:6px 8px;font-size:11px}}
+    `;doc.head.appendChild(style);
+  }
   cards=[];
   found.forEach((card,index)=>{
-    card.querySelector(':scope > .hb-admin-toggle')?.remove();
-    const id=cardId(card,index);card.classList.add('hb-admin-card');card.classList.toggle('hb-selected',!!state[id]);
-    const label=doc.createElement('label');label.className='hb-admin-toggle';label.innerHTML=`<span>Есть в ассортименте</span><input type="checkbox" ${state[id]?'checked':''}>`;
-    label.addEventListener('click',e=>e.stopPropagation());
-    label.querySelector('input').addEventListener('change',e=>{e.stopPropagation();if(e.target.checked)state[id]=true;else delete state[id];card.classList.toggle('hb-selected',e.target.checked);updateStats()});
-    card.appendChild(label);cards.push({id,card});
+    let label=card.querySelector(':scope > .hb-admin-toggle');
+    const id=cardId(card,index);
+    card.classList.add('hb-admin-card');card.dataset.hbAdminId=id;card.classList.toggle('hb-selected',!!state[id]);
+    if(!label){
+      label=doc.createElement('label');label.className='hb-admin-toggle';label.innerHTML='<span>Есть в ассортименте</span><input type="checkbox">';
+      label.addEventListener('click',e=>e.stopPropagation());card.appendChild(label);
+    }
+    const input=label.querySelector('input');input.checked=!!state[id];input.onchange=e=>{e.stopPropagation();if(e.target.checked)state[id]=true;else delete state[id];card.classList.toggle('hb-selected',e.target.checked);updateStats()};
+    cards.push({id,card});
   });
-  const resize=()=>{frame.style.height=Math.max(900,doc.documentElement.scrollHeight+20)+'px'};resize();setTimeout(resize,500);setTimeout(resize,1500);updateStats();return true;
+  applyAdminSearch();resizeFrame();setTimeout(resizeFrame,400);return true;
 }
-async function start(){await loadState();let tries=0;const timer=setInterval(()=>{tries++;if(inject()||tries>30)clearInterval(timer)},500)}
+function scheduleDecorate(){clearTimeout(decorateTimer);decorateTimer=setTimeout(decorate,120)}
+async function start(){await loadState();decorate();const doc=frame.contentDocument;if(observer)observer.disconnect();observer=new MutationObserver(scheduleDecorate);observer.observe(doc.body,{childList:true,subtree:true,attributes:true,attributeFilter:['class','style']});setTimeout(decorate,800);setTimeout(decorate,1800)}
 frame.addEventListener('load',start);
+document.getElementById('adminSearch').oninput=applyAdminSearch;
+document.getElementById('clearSearch').onclick=()=>{document.getElementById('adminSearch').value='';applyAdminSearch()};
 document.getElementById('generate').onclick=()=>{const out={};Object.keys(state).sort().forEach(id=>{if(state[id])out[id]={available:true}});document.getElementById('json').value=JSON.stringify(out,null,2)+'\n';document.getElementById('output').classList.add('show');window.scrollTo({top:0,behavior:'smooth'})};
 document.getElementById('copy').onclick=async()=>{await navigator.clipboard.writeText(document.getElementById('json').value);document.getElementById('status').textContent='JSON скопирован. Вставь его в catalog-status.json на GitHub.'};
 document.getElementById('github').onclick=()=>window.open(GH,'_blank');
