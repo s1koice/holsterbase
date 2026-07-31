@@ -15,7 +15,8 @@
   try{
     const bytes=Uint8Array.from(atob(window.__HB_SITE),c=>c.charCodeAt(0));
     const stream=new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
-    const html=await new Response(stream).text();
+    let html=await new Response(stream).text();
+    html=html.replace('</style>','.modal[hidden]{display:none!important}</style>');
     document.open();document.write(html);document.close();
   }catch(e){document.querySelector('.muted').textContent='Ошибка загрузки каталога: '+e.message;}
 })();
