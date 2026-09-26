@@ -8,6 +8,8 @@
 :root{font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;color:#101828;background:#f5f7fb}
 *{box-sizing:border-box}body{margin:0}.adminbar{position:sticky;top:0;z-index:1000;background:#fff;border-bottom:1px solid #e4e7ec;box-shadow:0 6px 18px rgba(16,24,40,.08)}.inner{max-width:1200px;margin:auto;padding:14px 18px}.top{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}.title{font-size:24px;font-weight:850}.muted{color:#667085;font-size:14px}.toolbar{display:grid;grid-template-columns:1fr auto;gap:10px;margin-top:12px}.search{width:100%;padding:12px 14px;border:1px solid #d0d5dd;border-radius:11px;font-size:16px}.stats{display:flex;gap:18px;flex-wrap:wrap;margin-top:10px;color:#475467}.actions{display:flex;gap:10px;flex-wrap:wrap}.btn{border:0;border-radius:11px;padding:11px 15px;font-weight:800;cursor:pointer;background:#101828;color:#fff}.btn.secondary{background:#eef2f6;color:#101828}.catalog-link{color:#175cd3;text-decoration:none;font-weight:750}.framewrap{max-width:1400px;margin:auto;padding:0 8px 30px}.hint{padding:12px 18px;color:#667085;font-size:14px;text-align:center}.output{display:none;max-width:1200px;margin:14px auto;padding:0 18px}.output.show{display:block}textarea{width:100%;min-height:260px;border:1px solid #d0d5dd;border-radius:12px;padding:14px;font:13px ui-monospace,SFMono-Regular,Menlo,monospace}.status{margin-top:8px;color:#067647;font-size:14px}iframe{display:block;width:100%;height:1200px;border:0;background:#fff;border-radius:0 0 18px 18px}
 @media(max-width:700px){.inner{padding:12px}.title{font-size:20px}.toolbar{grid-template-columns:1fr}.actions .btn{flex:1}.stats{font-size:14px}.framewrap{padding:0}}
+
+.quick-models{display:flex;align-items:center;gap:4px 18px;flex-wrap:wrap;margin-top:12px}.quick-models span{font-size:12px;color:#667085}.quick-models button{border:0;border-radius:0;background:transparent;padding:7px 0;color:#475467;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent}.quick-models button:hover{color:#175cd3}.quick-models button[aria-pressed="true"]{color:#175cd3;border-bottom-color:#175cd3}.quick-models button:focus-visible{outline:2px solid #175cd3;outline-offset:3px}.search-help{font-size:12px;color:#667085;margin-top:7px}.empty-search{padding:28px;text-align:center;color:#475467}.empty-search[hidden]{display:none}
 </style>
 </head>
 <body>
@@ -17,34 +19,24 @@
       <div><div class="title">HolsterBase Admin</div><div class="muted">Редактирование прямо на карточках основного каталога</div></div>
       <div class="actions"><button id="generate" class="btn">Сформировать JSON</button><button id="github" class="btn secondary">Открыть файл на GitHub</button><a class="catalog-link" href="index.html">Открыть каталог</a></div>
     </div>
-    <div class="toolbar"><input id="adminSearch" class="search" placeholder="Поиск по модели, оружию или производителю"><button id="clearSearch" class="btn secondary">Очистить</button></div>
-    <div class="stats"><span>Карточек: <b id="total">0</b></span><span>Показано: <b id="shown">0</b></span><span>В ассортименте: <b id="available">0</b></span></div>
+    <div class="toolbar"><input id="adminSearch" class="search" type="search" aria-label="Поиск по каталогу" aria-describedby="searchHelp" placeholder="Смит, Glock 19, גלוק, P365, 1911PRO…"><button id="clearSearch" class="btn secondary">Очистить</button></div>
+    <div id="searchHelp" class="search-help">Русский · English · עברית — ищем и по полному списку совместимости</div><div id="quickModels" class="quick-models" role="group" aria-label="Популярные модели пистолетов"></div>
+    <div class="stats" role="status" aria-live="polite"><span>Карточек: <b id="total">0</b></span><span>Показано: <b id="shown">0</b></span><span>В ассортименте: <b id="available">0</b></span></div>
   </div>
 </header>
 <div class="output" id="output"><textarea id="json" readonly></textarea><div class="actions" style="margin-top:10px"><button id="copy" class="btn">Копировать JSON</button></div><div class="status" id="status"></div></div>
 <div class="hint">Используй поиск сверху. Кнопка «Есть в ассортименте» сохраняется на карточках даже после фильтрации каталога.</div>
+<div id="emptySearch" class="empty-search" hidden>Ничего не найдено. Попробуйте другое название или очистите поиск.</div>
 <div class="framewrap"><iframe id="catalog" src="index.html"></iframe></div>
 <script>
 const GH='https://github.com/s1koice/holsterbase/edit/main/catalog-status.json';
 const frame=document.getElementById('catalog');
-let state={},cards=[],observer=null,decorateTimer=null;
+let state={},cards=[],observer=null,decorateTimer=null,catalogData=[],selectedModel="",cardIds=new Map();
 const clean=s=>String(s||'').replace(/\s+/g,' ').trim();
 const slug=s=>String(s||'').toLowerCase().trim().replace(/[^a-z0-9а-яё]+/gi,'-').replace(/^-+|-+$/g,'').slice(0,90);
 function hash(str){let h=2166136261;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619)}return (h>>>0).toString(36)}
 function visible(el,win){const r=el.getBoundingClientRect();const cs=win.getComputedStyle(el);return r.width>180&&r.height>45&&r.height<850&&cs.display!=='none'&&cs.visibility!=='hidden'}
-function findCards(doc){
-  const win=doc.defaultView;
-  const selectors=['[data-model]','[data-model-id]','article','li','.product-card','.holster-card','.model-card','.catalog-card','.card'];
-  let result=[...new Set(selectors.flatMap(s=>[...doc.querySelectorAll(s)]))].filter(el=>visible(el,win)&&/\b(Fobus|Orpaz)\b/i.test(clean(el.innerText)));
-  if(result.length<20){
-    const all=[...doc.body.querySelectorAll('*')].filter(el=>visible(el,win));
-    result=all.filter(el=>{
-      const t=clean(el.innerText);if(t.length<12||t.length>1000||!/\b(Fobus|Orpaz)\b/i.test(t))return false;
-      return ![...el.children].some(ch=>{const ct=clean(ch.innerText);return ct.length>12&&ct.length<t.length*.92&&/\b(Fobus|Orpaz)\b/i.test(ct)});
-    });
-  }
-  return result;
-}
+function findCards(doc){return [...doc.querySelectorAll('#results > .card')];}
 function cardId(card,index){
   const explicit=card.getAttribute('data-model-id')||card.getAttribute('data-id')||card.getAttribute('data-model')||card.querySelector('[data-model-id]')?.getAttribute('data-model-id')||card.querySelector('[data-model]')?.getAttribute('data-model');
   const text=clean(card.innerText.replace(/Есть в ассортименте/g,''));
@@ -54,39 +46,70 @@ function cardId(card,index){
 }
 async function loadState(){try{const r=await fetch('catalog-status.json?'+Date.now());const raw=r.ok?await r.json():{};state={};Object.entries(raw).forEach(([id,v])=>{if(v===true||v?.available)state[id]=true})}catch{state={}}}
 function updateStats(){document.getElementById('total').textContent=cards.length;document.getElementById('shown').textContent=cards.filter(c=>c.card.style.display!=='none').length;document.getElementById('available').textContent=cards.filter(c=>state[c.id]).length}
-function applyAdminSearch(){const q=clean(document.getElementById('adminSearch').value).toLowerCase();cards.forEach(({card})=>{card.style.display=!q||clean(card.innerText).toLowerCase().includes(q)?'':'none'});updateStats();resizeFrame()}
-function resizeFrame(){const doc=frame.contentDocument;if(doc?.documentElement)frame.style.height=Math.max(900,doc.documentElement.scrollHeight+20)+'px'}
+const aliasGroups=[
+ ['smith','smith & wesson','smith and wesson','s&w','sw','smit','смит','смит и вессон','смит энд вессон','סמית','סמיט'],
+ ['glock','глок','глокк','גלוק'],['sig','sig sauer','зиг зауэр','сиг зауэр','зиг','сиг','זיג זאואר','סיג זאואר','זיג','סיג'],
+ ['cz','чезет','чз','си зет','סי זד'],['walther','вальтер','וולטר'],['beretta','беретта','берета','ברטה'],
+ ['ruger','ругер','רוגר'],['taurus','таурус','טאורוס'],['springfield','спрингфилд','ספרינגפילד'],
+ ['canik','каник','джаник','קאניק'],['colt','кольт','קולט'],['kimber','кимбер','קימבר'],
+ ['iwi','айвиай','ивиай'],['jericho','джерико','иерихон','יריחו'],['masada','масада','מצדה'],
+ ['fobus','фобус','פובוס'],['orpaz','орпаз','אורפז'],['shield','шилд','шильд','שילד'],
+ ['hk','h&k','heckler & koch','хеклер кох','хеклер'],['bul','бул','בול'],['staccato','стаккато','סטקטו'],
+ ['shadow','шэдоу','шадоу','שאדו'],['em tan','emtan','эмтан','эметан','אמתן'],['ramon','рамон','רמון']
+];
+function basic(value){return String(value||'').normalize('NFKD').replace(/[\u0300-\u036f\u0591-\u05c7]/g,'').toLowerCase().replace(/ё/g,'е').replace(/[^a-z0-9а-яא-ת]+/g,' ').trim().replace(/\s+/g,' ')}
+const aliases=aliasGroups.flatMap(g=>g.map(a=>[basic(a),basic(g[0])])).sort((a,b)=>b[0].length-a[0].length);
+const translit={'а':'a','б':'b','в':'v','г':'g','д':'d','е':'e','ж':'zh','з':'z','и':'i','й':'i','к':'k','л':'l','м':'m','н':'n','о':'o','п':'p','р':'r','с':'s','т':'t','у':'u','ф':'f','х':'h','ц':'ts','ч':'ch','ш':'sh','щ':'sh','ъ':'','ы':'y','ь':'','э':'e','ю':'yu','я':'ya'};
+function normalize(value){let t=' '+basic(value)+' ';for(const [from,to] of aliases)t=t.replace(new RegExp('(^| )'+from+'(?= |$)','g'),'$1'+to);return t.replace(/[а-я]/g,c=>translit[c]??c).replace(/([a-z])([0-9])/g,'$1 $2').replace(/([0-9])([a-z])/g,'$1 $2').trim().replace(/\s+/g,' ')}
+function near(a,b){if(a.length<4||b.length<4||Math.abs(a.length-b.length)>1)return false;let i=0,j=0,errors=0;while(i<a.length&&j<b.length){if(a[i]===b[j]){i++;j++;continue}if(++errors>1)return false;if(a.length>=b.length)i++;if(b.length>=a.length)j++}return errors+(a.length-i)+(b.length-j)<=1}
+function matches(text,query){const hay=normalize(text),q=normalize(query);if(!q)return true;const words=hay.split(' ');if(hay.replace(/ /g,'').includes(q.replace(/ /g,''))&&!/\d/.test(q))return true;return q.split(' ').every(t=>words.some(w=>/\d/.test(t)?w===t:w.startsWith(t)||near(w,t)))}
+const popularModels=[['Glock 19','Glock','19'],['Glock 17','Glock','17'],['Glock 43X','Glock','43X'],['SIG P365','SIG Sauer','P365'],['SIG P320','SIG Sauer','P320'],['S&W Shield','Smith & Wesson','Shield'],['CZ P-10 C','CZ','P-10 C'],['Jericho','IWI','Jericho'],['Masada','IWI','Masada'],['1911','','1911']];
+function modelMatches(h,model){return h&&h.fits.some(f=>(!model[1]||normalize(f.brand)===normalize(model[1]))&&(' '+normalize(f.model)+' ').includes(' '+normalize(model[2])+' '))}
+function renderQuickModels(){const root=document.getElementById('quickModels');root.replaceChildren();const caption=document.createElement('span');caption.textContent='Быстрый выбор:';root.append(caption);for(const model of [['Все','',''],...popularModels.filter(m=>catalogData.some(h=>modelMatches(h,m)))]){const button=document.createElement('button');button.type='button';button.textContent=model[0];button.setAttribute('aria-pressed',String(selectedModel===(model[0]==='Все'?'':model[0])));button.onclick=()=>{selectedModel=selectedModel===model[0]||model[0]==='Все'?'':model[0];document.getElementById('adminSearch').value='';frame.contentDocument?.getElementById('reset')?.click();decorate();renderQuickModels();applyAdminSearch()};root.append(button)}}
+function applyAdminSearch(){const q=document.getElementById('adminSearch').value;const model=popularModels.find(m=>m[0]===selectedModel);cards.forEach(({card,data,searchText})=>{card.style.display=matches(searchText,q)&&(!model||modelMatches(data,model))?'':'none'});updateStats();document.getElementById('emptySearch').hidden=cards.some(c=>c.card.style.display!=='none');resizeFrame()}
+async function loadCatalogData(doc){const source=[...doc.scripts].map(s=>s.textContent).join('');const encoded=source.match(/const CATALOG_DATA="([A-Za-z0-9+/=]+)"/);if(!encoded)throw new Error('Catalog data not found');const bytes=Uint8Array.from(atob(encoded[1]),c=>c.charCodeAt(0));catalogData=JSON.parse(await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).text());renderQuickModels()}
+function resizeFrame(){const doc=frame.contentDocument;if(doc?.documentElement)frame.style.height=Math.max(600,Math.ceil(doc.body.getBoundingClientRect().height)+20)+'px'}
 function decorate(){
   const doc=frame.contentDocument;if(!doc?.body)return false;
   const found=findCards(doc);if(!found.length)return false;
   if(!doc.getElementById('hb-admin-style')){
     const style=doc.createElement('style');style.id='hb-admin-style';style.textContent=`
+      .search-panel + .notice{margin-bottom:16px}
+      #textSearch, aside h3, #selection, .hb-admin-link{display:none!important}
+      .modal[hidden]{display:none!important}
       .hb-admin-card{position:relative!important;overflow:visible!important}
-      .hb-admin-toggle{position:absolute;z-index:9999;right:10px;top:10px;display:flex;align-items:center;gap:7px;padding:8px 10px;border-radius:999px;background:rgba(255,255,255,.97);border:1px solid #d0d5dd;box-shadow:0 4px 14px rgba(16,24,40,.16);font:700 12px system-ui,-apple-system,sans-serif;color:#101828;cursor:pointer}
+      .hb-admin-toggle{position:relative;z-index:1;display:flex;align-items:center;gap:7px;margin-bottom:12px;width:fit-content;padding:8px 10px;border-radius:999px;background:rgba(255,255,255,.97);border:1px solid #d0d5dd;box-shadow:0 4px 14px rgba(16,24,40,.16);font:700 12px system-ui,-apple-system,sans-serif;color:#101828;cursor:pointer}
       .hb-admin-toggle input{width:19px;height:19px;margin:0;accent-color:#12b76a}
       .hb-admin-card.hb-selected{outline:3px solid #12b76a!important;outline-offset:2px}
       @media(max-width:700px){.hb-admin-toggle{right:6px;top:6px;padding:6px 8px;font-size:11px}}
     `;doc.head.appendChild(style);
   }
+  if(observer)observer.disconnect();
   cards=[];
   found.forEach((card,index)=>{
     let label=card.querySelector(':scope > .hb-admin-toggle');
-    const id=cardId(card,index);
+    const code=clean(card.querySelector('.code')?.textContent),brand=clean(card.querySelector('.tag.brand')?.textContent);
+    const key=brand+'|'+code;
+    const id=cardIds.get(key)||card.dataset.hbAdminId||cardId(card,index);
+    cardIds.set(key,id);
     card.classList.add('hb-admin-card');card.dataset.hbAdminId=id;card.classList.toggle('hb-selected',!!state[id]);
     if(!label){
       label=doc.createElement('label');label.className='hb-admin-toggle';label.innerHTML='<span>Есть в ассортименте</span><input type="checkbox">';
-      label.addEventListener('click',e=>e.stopPropagation());card.appendChild(label);
+      label.addEventListener('click',e=>e.stopPropagation());card.prepend(label);
     }
     const input=label.querySelector('input');input.checked=!!state[id];input.onchange=e=>{e.stopPropagation();if(e.target.checked)state[id]=true;else delete state[id];card.classList.toggle('hb-selected',e.target.checked);updateStats()};
-    cards.push({id,card});
+    const data=catalogData.find(h=>h.code===code&&h.brand===brand);
+    const searchText=data?[data.code,data.name,data.brand,data.description,...data.fits.map(f=>f.brand+' '+f.model)].join(' '):card.innerText;
+    cards.push({id,card,data,searchText});
   });
-  applyAdminSearch();resizeFrame();setTimeout(resizeFrame,400);return true;
+  applyAdminSearch();resizeFrame();setTimeout(resizeFrame,400);observeCatalog();return true;
 }
 function scheduleDecorate(){clearTimeout(decorateTimer);decorateTimer=setTimeout(decorate,120)}
-async function start(){await loadState();decorate();const doc=frame.contentDocument;if(observer)observer.disconnect();observer=new MutationObserver(scheduleDecorate);observer.observe(doc.body,{childList:true,subtree:true,attributes:true,attributeFilter:['class','style']});setTimeout(decorate,800);setTimeout(decorate,1800)}
+function observeCatalog(){const results=frame.contentDocument?.getElementById('results');if(observer&&results)observer.observe(results,{childList:true,subtree:true})}
+async function start(){await loadState();const doc=frame.contentDocument;try{await loadCatalogData(doc)}catch(e){document.getElementById('searchHelp').textContent='Не удалось загрузить полный поиск. Обновите страницу.'}if(observer)observer.disconnect();observer=new MutationObserver(scheduleDecorate);decorate();observeCatalog();setTimeout(decorate,800);setTimeout(decorate,1800)}
 frame.addEventListener('load',start);
-document.getElementById('adminSearch').oninput=applyAdminSearch;
-document.getElementById('clearSearch').onclick=()=>{document.getElementById('adminSearch').value='';applyAdminSearch()};
+document.getElementById('adminSearch').oninput=()=>{selectedModel='';renderQuickModels();applyAdminSearch()};
+document.getElementById('clearSearch').onclick=()=>{document.getElementById('adminSearch').value='';selectedModel='';renderQuickModels();applyAdminSearch()};
 document.getElementById('generate').onclick=()=>{const out={};Object.keys(state).sort().forEach(id=>{if(state[id])out[id]={available:true}});document.getElementById('json').value=JSON.stringify(out,null,2)+'\n';document.getElementById('output').classList.add('show');window.scrollTo({top:0,behavior:'smooth'})};
 document.getElementById('copy').onclick=async()=>{await navigator.clipboard.writeText(document.getElementById('json').value);document.getElementById('status').textContent='JSON скопирован. Вставь его в catalog-status.json на GitHub.'};
 document.getElementById('github').onclick=()=>window.open(GH,'_blank');
