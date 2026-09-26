@@ -69,47 +69,14 @@
   decorate();
 })();
 <\/script>
-<script>
-(function(){
-  const slug=s=>String(s||'').toLowerCase().trim().replace(/[^a-z0-9а-яё]+/gi,'-').replace(/^-+|-+$/g,'');
-  let status={};
-  function cardTitle(card){
-    const el=card.querySelector('[data-model],h1,h2,h3,h4,.title,.model,.card-title,strong');
-    if(el){const t=el.getAttribute('data-model')||el.textContent.trim();if(t&&t.length<160)return t;}
-    const lines=card.innerText.split('\\n').map(x=>x.trim()).filter(Boolean);return lines[0]||'';
-  }
-  function findCards(){
-    const selectors=['[data-model]','.product-card','.holster-card','.card','.catalog-item','article'];
-    for(const s of selectors){const list=[...document.querySelectorAll(s)];if(list.length>3)return list;}
-    return [];
-  }
-  function decorateStatus(){
-    findCards().forEach(card=>{
-      const name=cardTitle(card);if(!name)return;
-      const id=card.getAttribute('data-model-id')||card.getAttribute('data-id')||slug(name);
-      const s=status[id];
-      const old=card.querySelector('.hb-status');if(old)old.remove();
-      if(!s||(!s.available&&!s.recommended))return;
-      const box=document.createElement('div');box.className='hb-status';
-      if(s.available){const b=document.createElement('span');b.className='hb-badge available';b.textContent='● Есть в ассортименте';box.appendChild(b);}
-      if(s.recommended){const b=document.createElement('span');b.className='hb-badge recommended';b.textContent='★ Рекомендуем';box.appendChild(b);}
-      const anchor=card.querySelector('[data-model],h1,h2,h3,h4,.title,.model,.card-title,strong');
-      if(anchor&&anchor.parentNode)anchor.insertAdjacentElement('afterend',box);else card.prepend(box);
-    });
-  }
-  async function init(){
-    try{const r=await fetch('catalog-status.json?'+Date.now());if(r.ok)status=await r.json();}catch(e){}
-    decorateStatus();
-    const observer=new MutationObserver(()=>decorateStatus());observer.observe(document.documentElement,{childList:true,subtree:true});
-    if(!document.querySelector('.hb-admin-link')){const a=document.createElement('a');a.className='hb-admin-link';a.href='admin.html';a.textContent='Редактор ассортимента';document.body.appendChild(a);}
-  }
-  init();
-})();
-<\/script></body>`);
+</body>`);
     html=html.replace('<script>const CATALOG_DATA=', '<script src="search.js?v=20260926-3"><\/script><script>const CATALOG_DATA=');
     html=html.replace("if(q)rows=rows.filter(h=>[h.code,h.name,h.description,h.brand,...h.fits.flatMap(x=>[x.brand,x.model])].join(' ').toLowerCase().includes(q));", "if(q)rows=HBSearch.search(rows,q);");
     html=html.replace("  rows.sort((a,b)=>", "  if(!q)rows.sort((a,b)=>");
     html=html.replace('</body>', '<script src="catalog-search-ui.js?v=20260926-3"><\/script></body>');
+    html=html.replace('<script>const CATALOG_DATA=', '<script src="stock.js?v=20260926-1"><\/script><script>const CATALOG_DATA=');
+    html=html.replace('<article class="card" data-i="${i}">', '<article class="card" data-stock-id="${esc(HBStock.id(h))}" data-i="${i}">');
+    html=html.replace('</body>', '<script src="stock-ui.js?v=20260926-1"><\/script></body>');
     document.open();document.write(html);document.close();
   }catch(e){document.querySelector('.muted').textContent='Ошибка загрузки каталога: '+e.message;}
 })();

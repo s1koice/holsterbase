@@ -1,0 +1,14 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),zlib=require('node:zlib'),path=require('node:path');
+const S=require('../stock.js'),ctx={window:{}};vm.createContext(ctx);
+for(const f of ['site-chunk-0.js','site-chunk-1.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,'..',f),'utf8'),ctx);
+const html=zlib.gunzipSync(Buffer.from(ctx.window.__HB_SITE,'base64')).toString();const items=JSON.parse(zlib.gunzipSync(Buffer.from(html.match(/const CATALOG_DATA="([^"]+)"/)[1],'base64')));
+assert.equal(new Set(items.map(S.id)).size,items.length,'Every catalog item needs a unique stock ID');
+const h=items[0],key=S.id(h);assert.equal(S.id({...h,description:'Changed description',price:'Changed',fits:[]}),key);
+assert.notEqual(S.id({brand:'Fobus',code:'ABC'}),S.id({brand:'Orpaz',code:'ABC'}));
+const old={'удержание-6e7epc':{available:true},'unknown-old-key':{available:true}};
+const migrated=S.migrate(old,[{id:'fobus:1911-pro',legacy:'удержание-6e7epc'}]);
+assert(S.read(migrated,'fobus:1911-pro'));assert(!('удержание-6e7epc' in migrated));assert(migrated['unknown-old-key']);assert(old['удержание-6e7epc']);
+assert(!S.read({'fobus:1911-pro':false,'old':true},'fobus:1911-pro','old'));
+assert.throws(()=>S.validate([]));assert.throws(()=>S.validate({key:{available:'false'}}));
+let state={'fobus:1911-pro':true,'fobus:1911ch':{available:true},'fobus:226nd':false};const exported=JSON.parse(JSON.stringify(S.exportState(state)));assert(S.read(exported,'fobus:1911ch'));assert(!S.read(exported,'fobus:226nd'));delete state['fobus:1911ch'];assert(!S.read(S.exportState(state),'fobus:1911ch'));
+(async()=>{global.fetch=async()=>({ok:false,status:503});await assert.rejects(S.load());global.fetch=async()=>({ok:true,json:async()=>null});await assert.rejects(S.load());console.log('Stock tests passed: 126 unique stable IDs, legacy migration, uncheck/export/reload, invalid/failed loads.');})();

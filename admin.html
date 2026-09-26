@@ -17,7 +17,7 @@
   <div class="inner">
     <div class="top">
       <div><div class="title">HolsterBase Admin</div><div class="muted">Редактирование прямо на карточках основного каталога</div></div>
-      <div class="actions"><button id="generate" class="btn">Сформировать JSON</button><button id="github" class="btn secondary">Открыть файл на GitHub</button><a class="catalog-link" href="index.html">Открыть каталог</a></div>
+      <div class="actions"><button id="generate" class="btn" disabled>Сформировать JSON</button><button id="github" class="btn secondary">Открыть файл на GitHub</button><a class="catalog-link" href="index.html">Открыть каталог</a></div>
     </div>
     <div class="toolbar"><input id="adminSearch" class="search" type="search" aria-label="Поиск по каталогу" aria-describedby="searchHelp" placeholder="Шилд плюс, Рамон, п365, Глок 19…"><button id="clearSearch" class="btn secondary">Очистить</button></div>
     <div id="searchHelp" class="search-help">Модель пистолета на русском, English или עברית — можно без производителя</div><div id="adminSuggestions" class="quick-models" aria-label="Подходящие модели"></div><div id="quickModels" class="quick-models" role="group" aria-label="Популярные модели пистолетов"></div>
@@ -25,28 +25,21 @@
   </div>
 </header>
 <div class="output" id="output"><textarea id="json" readonly></textarea><div class="actions" style="margin-top:10px"><button id="copy" class="btn">Копировать JSON</button></div><div class="status" id="status"></div></div>
-<div class="hint">Используй поиск сверху. Кнопка «Есть в ассортименте» сохраняется на карточках даже после фильтрации каталога.</div>
+<div class="hint"><span id="stockMessage" role="status">Загрузка сохранённого наличия…</span> <button id="retryStock" class="btn secondary" hidden>Повторить загрузку</button></div>
 <div id="emptySearch" class="empty-search" hidden>Ничего не найдено. Попробуйте другое название или очистите поиск.</div>
 <div class="framewrap"><iframe id="catalog" src="index.html"></iframe></div>
 <script src="search.js?v=20260926-3"></script>
+<script src="stock.js?v=20260926-1"></script>
 <script>
 const GH='https://github.com/s1koice/holsterbase/edit/main/catalog-status.json';
 const frame=document.getElementById('catalog');
-let state={},cards=[],observer=null,decorateTimer=null,catalogData=[],selectedModel="",cardIds=new Map();
+let state={},cards=[],observer=null,decorateTimer=null,catalogData=[],selectedModel="",loadedState=null,stateReady=false;
 const clean=s=>String(s||'').replace(/\s+/g,' ').trim();
-const slug=s=>String(s||'').toLowerCase().trim().replace(/[^a-z0-9а-яё]+/gi,'-').replace(/^-+|-+$/g,'').slice(0,90);
-function hash(str){let h=2166136261;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619)}return (h>>>0).toString(36)}
-function visible(el,win){const r=el.getBoundingClientRect();const cs=win.getComputedStyle(el);return r.width>180&&r.height>45&&r.height<850&&cs.display!=='none'&&cs.visibility!=='hidden'}
 function findCards(doc){return [...doc.querySelectorAll('#results > .card')];}
-function cardId(card,index){
-  const explicit=card.getAttribute('data-model-id')||card.getAttribute('data-id')||card.getAttribute('data-model')||card.querySelector('[data-model-id]')?.getAttribute('data-model-id')||card.querySelector('[data-model]')?.getAttribute('data-model');
-  const text=clean(card.innerText.replace(/Есть в ассортименте/g,''));
-  const heading=clean(card.querySelector('h1,h2,h3,h4,h5,h6,[class*=title],[class*=model],strong,b')?.textContent||'');
-  const base=explicit||heading||text.slice(0,180)||('card-'+index);
-  return slug(base)+'-'+hash(text.slice(0,500));
-}
-async function loadState(){try{const r=await fetch('catalog-status.json?'+Date.now());const raw=r.ok?await r.json():{};state={};Object.entries(raw).forEach(([id,v])=>{if(v===true||v?.available)state[id]=true})}catch{state={}}}
-function updateStats(){document.getElementById('total').textContent=cards.length;document.getElementById('shown').textContent=cards.filter(c=>c.card.style.display!=='none').length;document.getElementById('available').textContent=cards.filter(c=>state[c.id]).length}
+function writeOutput(){document.getElementById('json').value=JSON.stringify(HBStock.exportState(state),null,2)+'\n'}
+function setStateError(message){stateReady=false;document.getElementById('generate').disabled=true;document.getElementById('copy').disabled=true;document.getElementById('stockMessage').textContent=message;document.getElementById('retryStock').hidden=false}
+async function loadState(){try{loadedState=await HBStock.load();state={...loadedState};stateReady=true;document.getElementById('generate').disabled=false;document.getElementById('copy').disabled=false;document.getElementById('stockMessage').textContent='Отметьте наличие, скопируйте JSON и замените им файл на GitHub. После сохранения дождитесь обновления сайта.';document.getElementById('retryStock').hidden=true}catch{setStateError('Не удалось загрузить сохранённое наличие. Повторите загрузку перед редактированием.')}}
+function updateStats(){document.getElementById('total').textContent=cards.length;document.getElementById('shown').textContent=cards.filter(c=>c.card.style.display!=='none').length;document.getElementById('available').textContent=Object.values(state).filter(HBStock.available).length}
 const normalize=HBSearch.normalize;
 const matches=HBSearch.matches;
 const popularModels=[['Glock 19','Glock','19'],['Glock 17','Glock','17'],['Glock 43X','Glock','43X'],['SIG P365','SIG Sauer','P365'],['SIG P320','SIG Sauer','P320'],['S&W Shield','Smith & Wesson','Shield'],['CZ P-10 C','CZ','P-10 C'],['Jericho','IWI','Jericho'],['Masada','IWI','Masada'],['1911','','1911']];
@@ -76,15 +69,15 @@ function decorate(){
   found.forEach((card,index)=>{
     let label=card.querySelector(':scope > .hb-admin-toggle');
     const code=clean(card.querySelector('.code')?.textContent),brand=clean(card.querySelector('.tag.brand')?.textContent);
-    const key=brand+'|'+code;
-    const id=cardIds.get(key)||card.dataset.hbAdminId||cardId(card,index);
-    cardIds.set(key,id);
-    card.classList.add('hb-admin-card');card.dataset.hbAdminId=id;card.classList.toggle('hb-selected',!!state[id]);
+    const id=card.dataset.stockId||HBStock.id({brand,code});
+    const legacy=card.dataset.stockLegacyId||(card.dataset.stockLegacyId=HBStock.legacyId(card));
+    state=HBStock.migrate(state,[{id,legacy}]);
+    card.classList.add('hb-admin-card');card.dataset.hbAdminId=id;card.classList.toggle('hb-selected',HBStock.available(state[id]));
     if(!label){
       label=doc.createElement('label');label.className='hb-admin-toggle';label.innerHTML='<span>Есть в ассортименте</span><input type="checkbox">';
       label.addEventListener('click',e=>e.stopPropagation());card.prepend(label);
     }
-    const input=label.querySelector('input');input.checked=!!state[id];input.onchange=e=>{e.stopPropagation();if(e.target.checked)state[id]=true;else delete state[id];card.classList.toggle('hb-selected',e.target.checked);updateStats()};
+    const input=label.querySelector('input');input.disabled=!stateReady;input.checked=HBStock.available(state[id]);input.onchange=e=>{e.stopPropagation();if(e.target.checked)state[id]=true;else delete state[id];card.classList.toggle('hb-selected',e.target.checked);updateStats();if(document.getElementById('output').classList.contains('show')){writeOutput();document.getElementById('status').textContent='JSON обновлён после изменения отметки.'}};
     const data=catalogData.find(h=>h.code===code&&h.brand===brand);
     const searchText=data?[data.code,data.name,data.brand,data.description,...data.fits.map(f=>f.brand+' '+f.model)].join(' '):card.innerText;
     cards.push({id,card,data,searchText});
@@ -95,10 +88,11 @@ function scheduleDecorate(){clearTimeout(decorateTimer);decorateTimer=setTimeout
 function observeCatalog(){const results=frame.contentDocument?.getElementById('results');if(observer&&results)observer.observe(results,{childList:true,subtree:true})}
 async function start(){await loadState();const doc=frame.contentDocument;try{await loadCatalogData(doc)}catch(e){document.getElementById('searchHelp').textContent='Не удалось загрузить полный поиск. Обновите страницу.'}if(observer)observer.disconnect();observer=new MutationObserver(scheduleDecorate);decorate();observeCatalog();setTimeout(decorate,800);setTimeout(decorate,1800)}
 frame.addEventListener('load',start);
+document.getElementById('retryStock').onclick=async()=>{await loadState();decorate()};
 document.getElementById('adminSearch').oninput=()=>{const doc=frame.contentDocument;if(doc?.getElementById('gunBrand')?.value||doc?.getElementById('gunModel')?.value){doc.getElementById('reset').click();decorate()}window.scrollTo({top:0});selectedModel='';renderQuickModels();applyAdminSearch();renderSuggestions()};
 document.getElementById('clearSearch').onclick=()=>{document.getElementById('adminSuggestions').replaceChildren();frame.contentDocument?.getElementById('reset')?.click();decorate();window.scrollTo({top:0});document.getElementById('adminSearch').value='';selectedModel='';renderQuickModels();applyAdminSearch()};
-document.getElementById('generate').onclick=()=>{const out={};Object.keys(state).sort().forEach(id=>{if(state[id])out[id]={available:true}});document.getElementById('json').value=JSON.stringify(out,null,2)+'\n';document.getElementById('output').classList.add('show');window.scrollTo({top:0,behavior:'smooth'})};
-document.getElementById('copy').onclick=async()=>{await navigator.clipboard.writeText(document.getElementById('json').value);document.getElementById('status').textContent='JSON скопирован. Вставь его в catalog-status.json на GitHub.'};
+document.getElementById('generate').onclick=()=>{if(!stateReady)return;writeOutput();document.getElementById('output').classList.add('show');window.scrollTo({top:0,behavior:'smooth'})};
+document.getElementById('copy').onclick=async()=>{if(!stateReady)return;writeOutput();try{await navigator.clipboard.writeText(document.getElementById('json').value);document.getElementById('status').textContent='JSON скопирован. Замените им содержимое catalog-status.json на GitHub и сохраните изменения.'}catch{document.getElementById('json').select();document.getElementById('status').textContent='Скопируйте выделенный JSON вручную.'}};
 document.getElementById('github').onclick=()=>window.open(GH,'_blank');
 </script>
 </body>
