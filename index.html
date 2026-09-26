@@ -106,6 +106,10 @@
   init();
 })();
 <\/script></body>`);
+    html=html.replace('<script>const CATALOG_DATA=', '<script src="search.js?v=20260926-2"><\/script><script>const CATALOG_DATA=');
+    html=html.replace("if(q)rows=rows.filter(h=>[h.code,h.name,h.description,h.brand,...h.fits.flatMap(x=>[x.brand,x.model])].join(' ').toLowerCase().includes(q));", "if(q)rows=HBSearch.search(rows,q);");
+    html=html.replace("  rows.sort((a,b)=>", "  if(!q)rows.sort((a,b)=>");
+    html=html.replace('</body>', '<script src="catalog-search-ui.js?v=20260926-2"><\/script></body>');
     document.open();document.write(html);document.close();
   }catch(e){document.querySelector('.muted').textContent='Ошибка загрузки каталога: '+e.message;}
 })();
