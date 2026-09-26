@@ -12,12 +12,13 @@ for(const [expected,variants] of [
  ['Hellcat',['хеллкат','хелкат','хэллкэт']],['Ramon',['рамон','רמון']],['Masada',['масада','массада','מצדה']],
  ['Jericho',['джерико','джерихо','иерихон','יריחו']],['Shadow 2',['шэдоу 2','шадоу 2']],
  ['P365',['п365','Р365','пи 365','п 365','P-365','пи триста шестьдесят пять']],['P365 XL',['п365 хл','пи 365 икс эль']],
- ['P320',['п320','пи320','пи триста двадцать']],['Glock 19',['глок19','глок 19','גלוק 19','G19','г19','глок девятнадцать']],
- ['CZ P-10 C',['чз п10 си','чезет п10 си']],['M&P',['мп','эм пи']],['Walther PDP',['вальтер пдп']],
+ ['P320',['п320','пи320','пи триста двадцать']],['Glock 43X',['глок43х','глок 43 х']],['Glock 19',['глок19','глок 19','גלוק 19','G19','г19','глок девятнадцать']],
+ ['CZ P-10 C',['чз п10 си','чезет п10 си','чз п10с']],['M&P',['мп','эм пи']],['Walther PDP',['вальтер пдп']],
  ['SIG P226',['сиг п226','зиг зауэр п226']]
 ])for(const q of variants){assert(ids(expected).length>0,expected);assert.deepEqual(ids(q),ids(expected),q+' should equal '+expected)}
 // Every listed firearm must find every catalog item declaring that exact fit.
 let pairs=0;for(const f of firearms){const result=S.search(catalog,f.brand+' '+f.model);for(const h of catalog.filter(h=>h.fits.some(x=>x.brand===f.brand&&x.model===f.model))){assert(result.includes(h),f.brand+' '+f.model+' missing '+h.code);pairs++}}
+assert(S.matches('SIG P365','365'));assert(!S.matches('SIG P365','366'));
 assert(!S.matches('Glock 17','Glock 19'));assert(!S.matches('SIG P365','P366'));assert(!S.matches('Glock 19','Glock 1'));
 assert(S.matches('Shield','Sheild'));assert(S.matches('Smith','Сми'));
 // Tokens from unrelated fit rows must not combine into a fictitious compatible model.

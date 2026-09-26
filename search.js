@@ -40,6 +40,7 @@ const pattern=new RegExp('(^| )('+[...aliases.keys()].sort((a,b)=>b.length-a.len
 const partialPattern=new RegExp('(^| )('+[...partialAliases.keys()].sort((a,b)=>b.length-a.length).join('|')+')(?= |$)','g');
 function normalize(v,partial=false){
  let t=basic(v).replace(/([a-zа-я])([0-9])/g,'$1 $2').replace(/([0-9])([a-zа-я])/g,'$1 $2');
+ t=t.replace(/(\d) ([хсф])(?= |$)/g,(_,digit,letter)=>digit+' '+({х:'x',с:'c',ф:'f'}[letter]));
  // Map aliases once, avoiding cascading substitutions of canonical names.
  t=t.replace(partial?partialPattern:pattern,(_,space,word,offset,source)=>partial&&!aliases.has(word)&&/^ \d/.test(source.slice(offset+_.length))?_:space+(partial?partialAliases:aliases).get(word));
  t=t.replace(/[а-я]/g,c=>ru[c]??c);
@@ -52,6 +53,7 @@ function normalize(v,partial=false){
 function distance(a,b,limit){if(Math.abs(a.length-b.length)>limit)return limit+1;let prev=Array.from({length:b.length+1},(_,i)=>i),before;for(let i=1;i<=a.length;i++){const row=[i];for(let j=1;j<=b.length;j++){row[j]=Math.min(row[j-1]+1,prev[j]+1,prev[j-1]+(a[i-1]!==b[j-1]));if(before&&i>1&&j>1&&a[i-1]===b[j-2]&&a[i-2]===b[j-1])row[j]=Math.min(row[j],before[j-2]+1)}before=prev;prev=row}return prev[b.length]}
 function tokenScore(word,q){
  if(word===q)return 0;
+ if(/^\d+$/.test(q)&&word.match(/^[a-z]+(\d+)[a-z]*$/)?.[1]===q)return 1;
  if(/\d/.test(q)||/\d/.test(word))return word.startsWith(q)&&q.length>=2&&!/^\d/.test(word.slice(q.length))?1:Infinity;
  if(word.startsWith(q))return 1;
  if(q.length<4||word.length<4)return Infinity;
